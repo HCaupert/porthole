@@ -1,0 +1,25 @@
+import { homedir } from "node:os";
+import path from "node:path";
+
+import { z } from "zod";
+
+const Env = z.object({
+  PORT: z.coerce.number().int().default(5200),
+  PUBLIC_URL: z.url(),
+  SERVICE_HOST: z.string().includes("*"),
+  DATABASE_PATH: z
+    .string()
+    .default(path.join(homedir(), ".porthole", "porthole.db")),
+});
+
+const env = Env.parse(process.env);
+
+const publicUrl = new URL(env.PUBLIC_URL);
+
+export const config = {
+  port: env.PORT,
+  publicUrl,
+  localUrl: `http://127.0.0.1:${env.PORT}`,
+  serviceHost: env.SERVICE_HOST,
+  databasePath: env.DATABASE_PATH,
+};

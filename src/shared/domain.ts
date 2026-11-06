@@ -1,0 +1,94 @@
+import { z } from "zod";
+
+export const presetNames = ["github", "gitlab", "jira", "generic"] as const;
+export const directions = ["inbound", "outbound"] as const;
+
+const inboundFields = {
+  direction: z.literal("inbound"),
+  preset: z.enum(presetNames).describe("Provider that signs the deliveries"),
+  secret: z
+    .string()
+    .min(1)
+    .optional()
+    .describe("Signing secret. Without it, deliveries are not verified"),
+};
+
+const outboundFields = {
+  direction: z.literal("outbound"),
+  upstream: z
+    .url()
+    .transform((url) => url.replace(/\/$/u, ""))
+    .describe("Base URL that receives the forwarded calls"),
+};
+
+const sourceVariants = <Extra extends Record<string, z.ZodType>>(
+  extra: Extra
+) =>
+  z.discriminatedUnion("direction", [
+    z.object({ ...extra, ...inboundFields }),
+    z.object({ ...extra, ...outboundFields }),
+  ]);
+
+export const SourceName = z
+  .string()
+  .regex(/^[a-z0-9][a-z0-9-]*$/u)
+  .describe("Slug used in the URL of the source");
+
+export const SourceSchema = sourceVariants({ name: SourceName });
+
+export type Source = z.infer<typeof SourceSchema>;
+
+export const SourceUpdateSchema = sourceVariants({});
+
+export const SourceViewSchema = sourceVariants({
+  name: SourceName,
+  url: z.string().describe("URL to give to the provider or app"),
+});
+
+export type SourceView = z.infer<typeof SourceViewSchema>;
+
+export const HeadersSchema = z.record(z.string(), z.string());
+
+const ExchangeBase = z.object({
+  id: z.number().int(),
+  source: z.string(),
+  receivedAt: z.iso.datetime(),
+  method: z.string(),
+  path: z.string(),
+  query: z.string(),
+  headers: HeadersSchema,
+  body: z.string(),
+  eventName: z.string(),
+});
+
+export const ResponseSchema = z.object({
+  status: z.number().int(),
+  headers: HeadersSchema,
+  body: z.string(),
+  durationMs: z.number(),
+});
+
+export const ExchangeSchema = z.discriminatedUnion("direction", [
+  ExchangeBase.extend({
+    direction: z.literal("inbound"),
+    response: z.null(),
+  }),
+  ExchangeBase.extend({
+    direction: z.literal("outbound"),
+    response: ResponseSchema,
+  }),
+]);
+
+export type Exchange = z.infer<typeof ExchangeSchema>;
+
+export const ServiceSchema = z.object({
+  port: z.number().int(),
+  host: z.string(),
+  pid: z.number().int(),
+  cwd: z.string(),
+  command: z.string(),
+  name: z.string(),
+  url: z.string(),
+});
+
+export type Service = z.infer<typeof ServiceSchema>;
