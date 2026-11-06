@@ -1,21 +1,24 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import {
   HeadContent,
-  Link,
   Outlet,
   Scripts,
   createRootRoute,
 } from "@tanstack/react-router";
 
-import { queryClient } from "../lib/query-client.ts";
+import { AppSidebar } from "@/components/app-sidebar";
+import { ModeToggle } from "@/components/mode-toggle";
+import { ThemeProvider } from "@/components/theme-provider";
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
+import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { queryClient } from "@/lib/query-client";
 
 import appCss from "../styles.css?url";
-
-const links = [
-  { to: "/", label: "Traffic" },
-  { to: "/sources", label: "Sources" },
-  { to: "/services", label: "Services" },
-] as const;
 
 export const Route = createRootRoute({
   head: () => ({
@@ -27,7 +30,7 @@ export const Route = createRootRoute({
     links: [{ rel: "stylesheet", href: appCss }],
   }),
   shellComponent: ({ children }) => (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
@@ -38,26 +41,26 @@ export const Route = createRootRoute({
     </html>
   ),
   component: () => (
-    <QueryClientProvider client={queryClient}>
-      <header className="flex items-center gap-4 border-b border-neutral-200 px-4 py-2 dark:border-neutral-800">
-        <strong>Porthole</strong>
-        <nav className="flex gap-3">
-          {links.map(({ to, label }) => (
-            <Link
-              key={to}
-              to={to}
-              className="text-neutral-500 hover:text-inherit"
-              activeProps={{ className: "font-medium text-inherit" }}
-              activeOptions={{ exact: true }}
-            >
-              {label}
-            </Link>
-          ))}
-        </nav>
-      </header>
-      <main className="p-4">
-        <Outlet />
-      </main>
-    </QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <SidebarProvider>
+            <AppSidebar />
+            <SidebarInset>
+              <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+                <SidebarTrigger />
+                <div className="ml-auto">
+                  <ModeToggle />
+                </div>
+              </header>
+              <main className="flex flex-1 flex-col gap-6 p-6">
+                <Outlet />
+              </main>
+            </SidebarInset>
+          </SidebarProvider>
+          <Toaster />
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
   ),
 });
