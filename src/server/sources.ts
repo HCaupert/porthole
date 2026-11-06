@@ -1,5 +1,5 @@
 import { SourceSchema } from "../shared/domain.ts";
-import type { Source, SourceView } from "../shared/domain.ts";
+import type { Source, SourceUpdate, SourceView } from "../shared/domain.ts";
 import { config } from "./config.ts";
 import { db } from "./db.ts";
 import { fail } from "./errors.ts";
@@ -42,16 +42,32 @@ export function createSource(source: Source) {
   return source;
 }
 
-export function updateSource(source: Source) {
-  const row = db
-    .query<Row, [string, string]>(
-      "UPDATE sources SET config = ? WHERE name = ? RETURNING config"
-    )
-    .get(JSON.stringify(source), source.name);
+function applyUpdate(name: string, update: SourceUpdate, current: Source) {
+  if (update.direction === "outbound") {
+    return { name, ...update };
+  }
 
-  if (!row) {
+  const secret =
+    update.secret === undefined && current.direction === "inbound"
+      ? current.secret
+      : (update.secret ?? undefined);
+
+  return { name, ...update, secret };
+}
+
+export function updateSource(name: string, update: SourceUpdate) {
+  const current = getSource(name);
+
+  if (!current) {
     throw fail(404, "SOURCE_NOT_FOUND");
   }
+
+  const source = applyUpdate(name, update, current);
+
+  db.query("UPDATE sources SET config = ? WHERE name = ?").run(
+    JSON.stringify(source),
+    name
+  );
 
   return source;
 }
@@ -62,10 +78,15 @@ export function deleteSource(name: string) {
 }
 
 export function toSourceView(source: Source): SourceView {
-  const url =
-    source.direction === "inbound"
-      ? `${config.publicUrl.origin}/_webhooks/${source.name}`
-      : `${config.localUrl}/_outbound/${source.name}`;
+  if (source.direction === "outbound") {
+    return { ...source, url: `${config.localUrl}/_outbound/${source.name}` };
+  }
 
-  return { ...source, url };
+  const { secret, ...rest } = source;
+
+  return {
+    ...rest,
+    hasSecret: secret !== undefined,
+    url: `${config.publicUrl.origin}/_webhooks/${source.name}`,
+  };
 }

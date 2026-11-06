@@ -7,7 +7,7 @@ import {
   ServiceSchema,
   SourceViewSchema,
 } from "../shared/domain.ts";
-import type { Source } from "../shared/domain.ts";
+import type { Source, SourceUpdate } from "../shared/domain.ts";
 
 async function request<Schema extends z.ZodType>(
   schema: Schema,
@@ -26,7 +26,7 @@ async function request<Schema extends z.ZodType>(
 async function send(
   method: string,
   path: string,
-  body?: Source | { name: string }
+  body?: Source | SourceUpdate | { name: string }
 ) {
   const response = await fetch(path, {
     method,
@@ -56,12 +56,11 @@ export const api = {
       )}`
     ),
   sources: async () => await request(SourceViewSchema.array(), "/api/sources"),
-  saveSource: async (source: Source, isNew: boolean) => {
-    await send(
-      isNew ? "POST" : "PUT",
-      isNew ? "/api/sources" : `/api/sources/${source.name}`,
-      source
-    );
+  createSource: async (source: Source) => {
+    await send("POST", "/api/sources", source);
+  },
+  updateSource: async (name: string, update: SourceUpdate) => {
+    await send("PUT", `/api/sources/${name}`, update);
   },
   deleteSource: async (name: string) => {
     await send("DELETE", `/api/sources/${name}`);

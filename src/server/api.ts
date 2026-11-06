@@ -75,18 +75,17 @@ curl -X POST ${api}/api/sources -H 'content-type: application/json' -d '{"name":
   .put(
     "/sources/:name",
     describeRoute({
-      summary: "Replace a source, except its name",
-      description: `curl -X PUT ${api}/api/sources/github -H 'content-type: application/json' -d '{"direction":"inbound","preset":"github","secret":"new"}'`,
+      summary:
+        "Replace a source, except its name. Secrets are never returned: omit secret to keep it, send null to remove it",
+      description: `curl -X PUT ${api}/api/sources/github -H 'content-type: application/json' -d '{"direction":"inbound","preset":"github","secret":"new"}'
+curl -X PUT ${api}/api/sources/github -H 'content-type: application/json' -d '{"direction":"inbound","preset":"github","secret":null}'`,
     }),
     validator("param", SourceParams),
     validator("json", SourceUpdateSchema),
     (c) =>
       c.json(
         toSourceView(
-          updateSource({
-            name: c.req.valid("param").name,
-            ...c.req.valid("json"),
-          })
+          updateSource(c.req.valid("param").name, c.req.valid("json"))
         )
       )
   )

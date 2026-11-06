@@ -60,7 +60,7 @@ function Sources() {
                 <td className="td">{source.direction}</td>
                 <td className="td">
                   {source.direction === "inbound"
-                    ? `${source.preset}${source.secret ? ", secret set" : ""}`
+                    ? `${source.preset}${source.hasSecret ? ", secret set" : ""}`
                     : source.upstream}
                 </td>
                 <td className="td mono break-all">{source.url}</td>

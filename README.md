@@ -64,7 +64,7 @@ The API of agents does not go through the tunnel. Agents call `http://127.0.0.1:
 1. Create an inbound source in the UI or with the API. Set a preset and a secret.
 2. Give the URL of the source to the provider: `PUBLIC_URL/_webhooks/<name>`.
 
-Porthole answers `200` with an empty body, and stores the delivery. If the signature is not valid, Porthole answers `401` and does not store the delivery. A source without a secret skips the verification.
+Porthole answers `200` with an empty body, and stores the delivery. If the signature is not valid, Porthole answers `401` and does not store the delivery. A source without a secret skips the verification. The API and the UI never return a secret. They return `hasSecret`.
 
 | Preset | Verification | Event name |
 | --- | --- | --- |
@@ -100,7 +100,7 @@ Agents call `http://127.0.0.1:5200`. The full reference is in two places:
 | `GET /api/sources` | List sources. |
 | `POST /api/sources` | Create a source. |
 | `GET /api/sources/:name` | Read a source. |
-| `PUT /api/sources/:name` | Replace a source. |
+| `PUT /api/sources/:name` | Replace a source. Omit `secret` to keep it, send `null` to remove it. |
 | `DELETE /api/sources/:name` | Delete a source and its exchanges. |
 | `GET /api/exchanges` | List exchanges. Filters: `source`, `direction`, `eventName`, `after`, `limit`. |
 | `GET /api/exchanges?after=N&wait=S` | Wait up to `S` seconds for an exchange with an id above `N`. |

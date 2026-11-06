@@ -5,16 +5,6 @@ export const directions = ["inbound", "outbound"] as const;
 
 export const PresetName = z.enum(presetNames);
 
-const inboundFields = {
-  direction: z.literal("inbound"),
-  preset: PresetName.describe("Provider that signs the deliveries"),
-  secret: z
-    .string()
-    .min(1)
-    .optional()
-    .describe("Signing secret. Without it, deliveries are not verified"),
-};
-
 const outboundFields = {
   direction: z.literal("outbound"),
   upstream: z
@@ -23,11 +13,22 @@ const outboundFields = {
     .describe("Base URL that receives the forwarded calls"),
 };
 
-const sourceVariants = <Extra extends Record<string, z.ZodType>>(
-  extra: Extra
+const Secret = z.string().min(1);
+
+const sourceVariants = <
+  Extra extends Record<string, z.ZodType>,
+  Inbound extends Record<string, z.ZodType>,
+>(
+  extra: Extra,
+  inbound: Inbound
 ) =>
   z.discriminatedUnion("direction", [
-    z.object({ ...extra, ...inboundFields }),
+    z.object({
+      ...extra,
+      direction: z.literal("inbound"),
+      preset: PresetName.describe("Provider that signs the deliveries"),
+      ...inbound,
+    }),
     z.object({ ...extra, ...outboundFields }),
   ]);
 
@@ -36,16 +37,37 @@ export const SourceName = z
   .regex(/^[a-z0-9][a-z0-9-]*$/u)
   .describe("Slug used in the URL of the source");
 
-export const SourceSchema = sourceVariants({ name: SourceName });
+export const SourceSchema = sourceVariants(
+  { name: SourceName },
+  {
+    secret: Secret.optional().describe(
+      "Signing secret. Without it, deliveries are not verified. Never returned"
+    ),
+  }
+);
 
 export type Source = z.infer<typeof SourceSchema>;
 
-export const SourceUpdateSchema = sourceVariants({});
+export const SourceUpdateSchema = sourceVariants(
+  {},
+  {
+    secret: Secret.nullable()
+      .optional()
+      .describe(
+        "Signing secret. Omit to keep the stored secret, null to remove it. Never returned"
+      ),
+  }
+);
 
-export const SourceViewSchema = sourceVariants({
-  name: SourceName,
-  url: z.string().describe("URL to give to the provider or app"),
-});
+export type SourceUpdate = z.infer<typeof SourceUpdateSchema>;
+
+export const SourceViewSchema = sourceVariants(
+  {
+    name: SourceName,
+    url: z.string().describe("URL to give to the provider or app"),
+  },
+  { hasSecret: z.boolean().describe("Whether deliveries are verified") }
+);
 
 export type SourceView = z.infer<typeof SourceViewSchema>;
 

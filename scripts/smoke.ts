@@ -39,7 +39,7 @@ async function send(path: string, init: RequestInit = {}) {
 async function sendJson(
   method: string,
   path: string,
-  body: Record<string, string | undefined>
+  body: Record<string, string | null | undefined>
 ) {
   return await send(path, {
     method,
@@ -109,7 +109,18 @@ function hubSignature(secret: string, body: string) {
 async function githubSource() {
   const name = `smoke-github-${run}`;
   const secret = "github-secret";
-  await createSource({ name, direction: "inbound", preset: "github", secret });
+
+  const created = await createSource({
+    name,
+    direction: "inbound",
+    preset: "github",
+    secret,
+  });
+
+  check(
+    created.status === 201 && !(await created.text()).includes(secret),
+    "sources: the create response does not contain the secret"
+  );
   const body = JSON.stringify({ action: "opened", number: 1 });
 
   const deliver = async (path: string, key: string) =>
@@ -178,6 +189,89 @@ async function gitlabSource() {
   check(
     (await exchangesOf(`source=${name}`)).length === 1,
     "gitlab: bad signature is not stored"
+  );
+}
+
+async function deliverGithub(name: string, key: string) {
+  const body = "{}";
+
+  return await send(`/_webhooks/${name}`, {
+    method: "POST",
+    headers: {
+      "x-github-event": "ping",
+      "x-hub-signature-256": hubSignature(key, body),
+    },
+    body,
+  });
+}
+
+async function sourceSecrets() {
+  const name = `smoke-update-${run}`;
+  const secret = `first-${run}`;
+  const replacement = `second-${run}`;
+  const seen: string[] = [];
+
+  const readSources = async () => {
+    for (const path of [
+      "/api/sources",
+      `/api/sources/${name}`,
+      "/api/openapi.json",
+      "/llms.txt",
+    ]) {
+      seen.push(await (await send(path)).text());
+    }
+  };
+
+  const update = async (secretField: Record<string, string | null>) => {
+    const response = await sendJson("PUT", `/api/sources/${name}`, {
+      direction: "inbound",
+      preset: "github",
+      ...secretField,
+    });
+
+    const text = await response.text();
+    seen.push(text);
+    await readSources();
+
+    return { status: response.status, text };
+  };
+
+  await createSource({ name, direction: "inbound", preset: "github", secret });
+
+  const kept = await update({});
+  check(
+    kept.status === 200 && kept.text.includes('"hasSecret":true'),
+    "sources: update without secret answers hasSecret true"
+  );
+  check(
+    (await deliverGithub(name, secret)).status === 200,
+    "sources: update without secret keeps the stored secret"
+  );
+  check(
+    (await deliverGithub(name, "wrong")).status === 401,
+    "sources: update without secret keeps the verification"
+  );
+
+  await update({ secret: replacement });
+  check(
+    (await deliverGithub(name, replacement)).status === 200 &&
+      (await deliverGithub(name, secret)).status === 401,
+    "sources: update with a secret replaces the stored secret"
+  );
+
+  const removed = await update({ secret: null });
+  check(
+    removed.text.includes('"hasSecret":false') &&
+      (await deliverGithub(name, "anything")).status === 200,
+    "sources: update with null removes the secret"
+  );
+
+  const responses = seen.join("\n");
+  check(
+    [secret, replacement, "github-secret"].every(
+      (value) => !responses.includes(value)
+    ),
+    "sources: no response contains a secret value"
   );
 }
 
@@ -355,7 +449,7 @@ async function proxy(service: Service) {
 }
 
 async function cleanup() {
-  for (const kind of ["github", "gitlab", "out"]) {
+  for (const kind of ["github", "gitlab", "update", "out"]) {
     await send(`/api/sources/smoke-${kind}-${run}`, { method: "DELETE" });
   }
 
@@ -365,6 +459,8 @@ async function cleanup() {
 const github = await githubSource();
 
 await gitlabSource();
+
+await sourceSecrets();
 
 await longPoll(github);
 

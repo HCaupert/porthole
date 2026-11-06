@@ -7,14 +7,14 @@ import {
   PresetName,
   presetNames,
   SourceSchema,
+  SourceUpdateSchema,
 } from "../shared/domain.ts";
 import type { Source, SourceView } from "../shared/domain.ts";
 
-const blank: SourceView = {
+const blank: Source = {
   name: "",
   direction: "inbound",
   preset: "github",
-  url: "",
 };
 
 export function SourceForm({
@@ -25,11 +25,23 @@ export function SourceForm({
   onDone: () => void;
 }) {
   const queryClient = useQueryClient();
-  const [draft, setDraft] = useState(source ?? blank);
+  const [draft, setDraft] = useState<Source>(source ?? blank);
+  const [secret, setSecret] = useState("");
+  const [removeSecret, setRemoveSecret] = useState(false);
 
   const save = useMutation({
-    mutationFn: async (value: Source) =>
-      await api.saveSource(value, source === undefined),
+    mutationFn: async () =>
+      source === undefined
+        ? await api.createSource(
+            SourceSchema.parse({ ...draft, secret: secret || undefined })
+          )
+        : await api.updateSource(
+            source.name,
+            SourceUpdateSchema.parse({
+              ...draft,
+              secret: removeSecret ? null : secret || undefined,
+            })
+          ),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["sources"] });
       onDone();
@@ -41,7 +53,7 @@ export function SourceForm({
       className="flex flex-wrap items-end gap-2"
       onSubmit={(event) => {
         event.preventDefault();
-        save.mutate(SourceSchema.parse(draft));
+        save.mutate();
       }}
     >
       <label className="flex flex-col gap-1">
@@ -94,13 +106,29 @@ export function SourceForm({
           <label className="flex flex-col gap-1">
             Secret
             <input
+              autoComplete="new-password"
               className="input"
-              value={draft.secret ?? ""}
-              onChange={(event) =>
-                setDraft({ ...draft, secret: event.target.value || undefined })
+              disabled={removeSecret}
+              placeholder={
+                source?.direction === "inbound" && source.hasSecret
+                  ? "Empty keeps the current secret"
+                  : ""
               }
+              type="password"
+              value={secret}
+              onChange={(event) => setSecret(event.target.value)}
             />
           </label>
+          {source?.direction === "inbound" && source.hasSecret && (
+            <label className="flex items-center gap-1">
+              <input
+                checked={removeSecret}
+                type="checkbox"
+                onChange={(event) => setRemoveSecret(event.target.checked)}
+              />
+              Remove secret
+            </label>
+          )}
         </>
       ) : (
         <label className="flex flex-col gap-1">
