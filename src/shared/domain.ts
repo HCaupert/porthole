@@ -4,6 +4,7 @@ export const presetNames = ["github", "gitlab", "jira", "generic"] as const;
 export const directions = ["inbound", "outbound"] as const;
 
 export const PresetName = z.enum(presetNames);
+export const DirectionName = z.enum(directions);
 
 const outboundFields = {
   direction: z.literal("outbound"),
