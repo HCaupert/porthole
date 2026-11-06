@@ -1,1 +1,37 @@
 @import "tailwindcss";
+
+@layer base {
+  :root {
+    color-scheme: light dark;
+  }
+
+  body {
+    @apply bg-white text-sm text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100;
+  }
+}
+
+@layer components {
+  .input {
+    @apply rounded border border-neutral-300 bg-transparent px-2 py-1 dark:border-neutral-700;
+  }
+
+  .btn {
+    @apply rounded border border-neutral-300 px-2 py-1 hover:bg-neutral-100 disabled:opacity-50 dark:border-neutral-700 dark:hover:bg-neutral-800;
+  }
+
+  .btn-primary {
+    @apply rounded bg-neutral-900 px-2 py-1 text-white hover:bg-neutral-700 disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300;
+  }
+
+  .th {
+    @apply border-b border-neutral-200 px-2 py-1 text-left font-medium text-neutral-500 dark:border-neutral-800;
+  }
+
+  .td {
+    @apply border-b border-neutral-100 px-2 py-1 dark:border-neutral-900;
+  }
+
+  .mono {
+    @apply font-mono text-xs;
+  }
+}

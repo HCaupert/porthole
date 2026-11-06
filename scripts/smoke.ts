@@ -3,7 +3,11 @@ import { createHmac } from "node:crypto";
 import { Webhook } from "standardwebhooks";
 import { z } from "zod";
 
-import { ExchangeSchema, ServiceSchema } from "../src/shared/domain.ts";
+import {
+  ExchangeSchema,
+  ReplayResultSchema,
+  ServiceSchema,
+} from "../src/shared/domain.ts";
 import type { Exchange, Service, Source } from "../src/shared/domain.ts";
 
 const base =
@@ -19,8 +23,6 @@ const EchoedSchema = z.object({
 });
 
 type Echoed = z.infer<typeof EchoedSchema>;
-
-const ReplayResultSchema = z.object({ status: z.number(), body: z.string() });
 
 function check(condition: boolean, message: string) {
   console.log(`${condition ? "ok  " : "FAIL"} ${message}`);

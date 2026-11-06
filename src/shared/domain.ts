@@ -3,9 +3,11 @@ import { z } from "zod";
 export const presetNames = ["github", "gitlab", "jira", "generic"] as const;
 export const directions = ["inbound", "outbound"] as const;
 
+export const PresetName = z.enum(presetNames);
+
 const inboundFields = {
   direction: z.literal("inbound"),
-  preset: z.enum(presetNames).describe("Provider that signs the deliveries"),
+  preset: PresetName.describe("Provider that signs the deliveries"),
   secret: z
     .string()
     .min(1)
@@ -92,3 +94,8 @@ export const ServiceSchema = z.object({
 });
 
 export type Service = z.infer<typeof ServiceSchema>;
+
+export const ReplayResultSchema = z.object({
+  status: z.number().int(),
+  body: z.string(),
+});
