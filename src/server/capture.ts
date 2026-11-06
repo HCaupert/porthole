@@ -23,7 +23,7 @@ function pathAfter(path: string, prefix: string) {
 
 export const capture = new Hono();
 
-capture.all("/_webhooks/:name/*", async (c) => {
+capture.all("/api/webhooks/:name/*", async (c) => {
   const name = c.req.param("name");
   const source = getSource(name);
 
@@ -40,7 +40,7 @@ capture.all("/_webhooks/:name/*", async (c) => {
     throw fail(401, "INVALID_SIGNATURE");
   }
 
-  const path = pathAfter(c.req.path, `/_webhooks/${name}`);
+  const path = pathAfter(c.req.path, `/api/webhooks/${name}`);
   addExchange({
     source: name,
     direction: "inbound",

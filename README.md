@@ -53,7 +53,7 @@ Porthole expects these items in front of it:
    - The host of `PUBLIC_URL`, for example `porthole.example.com`.
    - The wildcard of `SERVICE_HOST`, for example `*-porthole.example.com`.
 2. DNS records for both hostnames that point to the tunnel.
-3. A Cloudflare Access application that protects every path except `/_webhooks/*`. Providers cannot sign in, so they must reach `/_webhooks/*` without Access.
+3. A Cloudflare Access application that protects every path except `/api/webhooks/*`. Providers cannot sign in, so they must reach `/api/webhooks/*` without Access.
 
 Put the service host at the first level under your domain (`3104-porthole.example.com`). Then the Universal SSL certificate of the domain covers it.
 
@@ -62,7 +62,7 @@ The API of agents does not go through the tunnel. Agents call `http://127.0.0.1:
 ## Inbound webhooks
 
 1. Create an inbound source in the UI or with the API. Set a preset and a secret.
-2. Give the URL of the source to the provider: `PUBLIC_URL/_webhooks/<name>`.
+2. Give the URL of the source to the provider: `PUBLIC_URL/api/webhooks/<name>`.
 
 Porthole answers `200` with an empty body, and stores the delivery. If the signature is not valid, Porthole answers `401` and does not store the delivery. A source without a secret skips the verification. The API and the UI never return a secret. They return `hasSecret`.
 

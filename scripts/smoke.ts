@@ -133,20 +133,20 @@ async function githubSource() {
       body,
     });
 
-  const good = await deliver(`/_webhooks/${name}`, secret);
+  const good = await deliver(`/api/webhooks/${name}`, secret);
   check(good.status === 200, "github: signed delivery answers 200");
   const [stored] = await exchangesOf(`source=${name}`);
   check(
     stored?.eventName === "pull_request.opened",
     "github: delivery is stored with event pull_request.opened"
   );
-  const bad = await deliver(`/_webhooks/${name}`, "wrong");
+  const bad = await deliver(`/api/webhooks/${name}`, "wrong");
   check(bad.status === 401, "github: bad signature answers 401");
   check(
     (await exchangesOf(`source=${name}`)).length === 1,
     "github: bad signature is not stored"
   );
-  const unknown = await deliver(`/_webhooks/unknown-${run}`, secret);
+  const unknown = await deliver(`/api/webhooks/unknown-${run}`, secret);
   check(unknown.status === 404, "unknown source answers 404");
 
   return { name, secret, exchange: stored! };
@@ -166,7 +166,7 @@ async function gitlabSource() {
     const id = `msg_${crypto.randomUUID()}`;
     const timestamp = new Date();
 
-    return await send(`/_webhooks/${name}`, {
+    return await send(`/api/webhooks/${name}`, {
       method: "POST",
       headers: {
         "webhook-id": id,
@@ -195,7 +195,7 @@ async function gitlabSource() {
 async function deliverGithub(name: string, key: string) {
   const body = "{}";
 
-  return await send(`/_webhooks/${name}`, {
+  return await send(`/api/webhooks/${name}`, {
     method: "POST",
     headers: {
       "x-github-event": "ping",
@@ -280,7 +280,7 @@ async function longPoll(github: Awaited<ReturnType<typeof githubSource>>) {
   const waiting = exchangesOf(`source=${github.name}&after=${after}&wait=10`);
   await Bun.sleep(300);
   const startedAt = Date.now();
-  await send(`/_webhooks/${github.name}`, {
+  await send(`/api/webhooks/${github.name}`, {
     method: "POST",
     headers: {
       "x-github-event": "ping",

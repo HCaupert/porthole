@@ -12,7 +12,7 @@ Base URL for agents: ${config.localUrl}
 No authentication on this address. Do not expose it.
 
 ## Inbound webhooks
-Create an inbound source, then give its url (${config.publicUrl.origin}/_webhooks/<name>) to the provider. Presets: github, gitlab, jira, generic. With a secret, deliveries with a wrong signature get 401 and are not stored.
+Create an inbound source, then give its url (${config.publicUrl.origin}/api/webhooks/<name>) to the provider. Presets: github, gitlab, jira, generic. With a secret, deliveries with a wrong signature get 401 and are not stored.
 
 ## Outbound capture
 Create an outbound source with an upstream, then use ${config.localUrl}/_outbound/<name> as the base URL in your app. Path and query are appended to the upstream. Values of auth headers are stored as ***.

@@ -87,6 +87,6 @@ export function toSourceView(source: Source): SourceView {
   return {
     ...rest,
     hasSecret: secret !== undefined,
-    url: `${config.publicUrl.origin}/_webhooks/${source.name}`,
+    url: `${config.publicUrl.origin}/api/webhooks/${source.name}`,
   };
 }
