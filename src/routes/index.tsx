@@ -1,11 +1,43 @@
+import { RiArrowLeftRightLine } from "@remixicon/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
-import { ExchangeDetail } from "../components/exchange-detail.tsx";
-import { api, DirectionFilter } from "../lib/api.ts";
-import type { ExchangeFilter } from "../lib/api.ts";
-import { directions } from "../shared/domain.ts";
+import {
+  DirectionBadge,
+  ExchangeDetail,
+  StatusBadge,
+} from "@/components/exchange-detail";
+import { PageHeader } from "@/components/page-header";
+import { RelativeTime } from "@/components/relative-time";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { api, DirectionFilter } from "@/lib/api";
+import type { ExchangeFilter } from "@/lib/api";
+import { sourcesQuery } from "@/lib/queries";
+import { directions } from "@/shared/domain";
 
 function useExchangeStream() {
   const queryClient = useQueryClient();
@@ -17,6 +49,79 @@ function useExchangeStream() {
 
     return () => events.close();
   }, [queryClient]);
+}
+
+function Filters({
+  filter,
+  onChange,
+}: {
+  filter: ExchangeFilter;
+  onChange: (filter: ExchangeFilter) => void;
+}) {
+  const sources = useQuery(sourcesQuery);
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Select
+        items={[
+          { value: "", label: "All sources" },
+          ...(sources.data ?? []).map(({ name }) => ({
+            value: name,
+            label: name,
+          })),
+        ]}
+        value={filter.source}
+        onValueChange={(source) =>
+          onChange({ ...filter, source: source ?? "" })
+        }
+      >
+        <SelectTrigger className="w-44">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="">All sources</SelectItem>
+          {sources.data?.map(({ name }) => (
+            <SelectItem key={name} value={name}>
+              {name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Select
+        items={[
+          { value: "", label: "Both directions" },
+          ...directions.map((direction) => ({
+            value: direction,
+            label: direction,
+          })),
+        ]}
+        value={filter.direction}
+        onValueChange={(direction) =>
+          onChange({ ...filter, direction: DirectionFilter.parse(direction) })
+        }
+      >
+        <SelectTrigger className="w-44">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="">Both directions</SelectItem>
+          {directions.map((direction) => (
+            <SelectItem key={direction} value={direction}>
+              {direction}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Input
+        className="w-56"
+        placeholder="Event name"
+        value={filter.eventName}
+        onChange={(event) =>
+          onChange({ ...filter, eventName: event.target.value })
+        }
+      />
+    </div>
+  );
 }
 
 function Traffic() {
@@ -35,83 +140,83 @@ function Traffic() {
     queryFn: async () => await api.exchanges(filter),
   });
 
-  const sources = useQuery({ queryKey: ["sources"], queryFn: api.sources });
   const selected = exchanges.data?.find(({ id }) => id === selectedId);
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-      <section className="flex flex-col gap-2">
-        <div className="flex gap-2">
-          <select
-            className="input"
-            value={filter.source}
-            onChange={(event) =>
-              setFilter({ ...filter, source: event.target.value })
-            }
-          >
-            <option value="">All sources</option>
-            {sources.data?.map(({ name }) => (
-              <option key={name}>{name}</option>
-            ))}
-          </select>
-          <select
-            className="input"
-            value={filter.direction}
-            onChange={(event) =>
-              setFilter({
-                ...filter,
-                direction: DirectionFilter.parse(event.target.value),
-              })
-            }
-          >
-            <option value="">Both directions</option>
-            {directions.map((direction) => (
-              <option key={direction}>{direction}</option>
-            ))}
-          </select>
-          <input
-            className="input flex-1"
-            placeholder="Event name"
-            value={filter.eventName}
-            onChange={(event) =>
-              setFilter({ ...filter, eventName: event.target.value })
-            }
-          />
+    <>
+      <PageHeader
+        title="Traffic"
+        description="Webhooks received and outbound calls recorded."
+      />
+      <Filters filter={filter} onChange={setFilter} />
+      {exchanges.data?.length === 0 ? (
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <RiArrowLeftRightLine />
+            </EmptyMedia>
+            <EmptyTitle>No traffic</EmptyTitle>
+            <EmptyDescription>
+              Deliveries and outbound calls appear here when they match the
+              filters.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : (
+        <div className="rounded-lg border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Direction</TableHead>
+                <TableHead>Source</TableHead>
+                <TableHead>Event</TableHead>
+                <TableHead>Request</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Time</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {exchanges.data?.map((exchange) => (
+                <TableRow
+                  key={exchange.id}
+                  className="cursor-pointer"
+                  onClick={() => setSelectedId(exchange.id)}
+                >
+                  <TableCell>
+                    <DirectionBadge direction={exchange.direction} />
+                  </TableCell>
+                  <TableCell>{exchange.source}</TableCell>
+                  <TableCell>{exchange.eventName}</TableCell>
+                  <TableCell>
+                    <span className="font-mono text-xs">
+                      {exchange.method} {exchange.path}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    {exchange.response && (
+                      <StatusBadge status={exchange.response.status} />
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <span className="text-muted-foreground">
+                      <RelativeTime iso={exchange.receivedAt} />
+                    </span>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
-        <table className="w-full">
-          <thead>
-            <tr>
-              <th className="th">Time</th>
-              <th className="th">Source</th>
-              <th className="th">Event</th>
-              <th className="th">Request</th>
-              <th className="th">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {exchanges.data?.map((exchange) => (
-              <tr
-                key={exchange.id}
-                className={`cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-900 ${exchange.id === selectedId ? "bg-neutral-100 dark:bg-neutral-900" : ""}`}
-                onClick={() => setSelectedId(exchange.id)}
-              >
-                <td className="td mono">{exchange.receivedAt.slice(11, 19)}</td>
-                <td className="td">
-                  {exchange.direction === "inbound" ? "in" : "out"}{" "}
-                  {exchange.source}
-                </td>
-                <td className="td">{exchange.eventName}</td>
-                <td className="td mono">
-                  {exchange.method} {exchange.path}
-                </td>
-                <td className="td mono">{exchange.response?.status}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
-      <section>{selected && <ExchangeDetail exchange={selected} />}</section>
-    </div>
+      )}
+      <Sheet
+        open={selected !== undefined}
+        onOpenChange={() => setSelectedId(undefined)}
+      >
+        <SheetContent className="data-[side=right]:sm:max-w-2xl">
+          {selected && <ExchangeDetail exchange={selected} />}
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }
 
