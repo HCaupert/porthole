@@ -1,9 +1,31 @@
+import { RiExternalLinkLine, RiServerLine } from "@remixicon/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { toast } from "sonner";
 
-import { api } from "../lib/api.ts";
-import type { Service } from "../shared/domain.ts";
+import { PageHeader } from "@/components/page-header";
+import { Truncated } from "@/components/truncated";
+import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { api } from "@/lib/api";
+import { servicesQuery } from "@/lib/queries";
+import type { Service } from "@/shared/domain";
 
 function RenameForm({
   service,
@@ -19,6 +41,7 @@ function RenameForm({
     mutationFn: async () => await api.renameService(service.port, name),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["services"] });
+      toast.success(`Service renamed to ${name}`);
       onDone();
     },
   });
@@ -31,78 +54,111 @@ function RenameForm({
         rename.mutate();
       }}
     >
-      <input
-        className="input"
+      <Input
+        aria-label="Name"
+        className="w-48"
         required
         value={name}
         onChange={(event) => setName(event.target.value)}
       />
-      <button className="btn-primary" type="submit">
+      <Button disabled={rename.isPending} type="submit">
         Save
-      </button>
+      </Button>
+      <Button onClick={onDone} type="button" variant="outline">
+        Cancel
+      </Button>
     </form>
   );
 }
 
 function Services() {
-  const services = useQuery({
-    queryKey: ["services"],
-    queryFn: api.services,
-    refetchInterval: 2000,
-  });
-
+  const services = useQuery(servicesQuery);
   const [renaming, setRenaming] = useState<number>();
 
   return (
-    <table className="w-full">
-      <thead>
-        <tr>
-          <th className="th">Name</th>
-          <th className="th">Port</th>
-          <th className="th">Directory</th>
-          <th className="th">Command</th>
-          <th className="th">
-            <span className="sr-only">Actions</span>
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        {services.data?.map((service) => (
-          <tr key={service.port}>
-            <td className="td">
-              {renaming === service.port ? (
-                <RenameForm
-                  service={service}
-                  onDone={() => setRenaming(undefined)}
-                />
-              ) : (
-                <button
-                  className="hover:underline"
-                  onClick={() => setRenaming(service.port)}
-                  title="Rename"
-                  type="button"
-                >
-                  {service.name}
-                </button>
-              )}
-            </td>
-            <td className="td mono">{service.port}</td>
-            <td className="td mono break-all">{service.cwd}</td>
-            <td className="td mono break-all">{service.command}</td>
-            <td className="td text-right">
-              <a
-                className="btn"
-                href={service.url}
-                rel="noreferrer"
-                target="_blank"
-              >
-                Open
-              </a>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <>
+      <PageHeader
+        title="Services"
+        description="Apps listening on local ports. Each one opens at its own hostname."
+      />
+      {services.data?.length === 0 ? (
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <RiServerLine />
+            </EmptyMedia>
+            <EmptyTitle>No service detected</EmptyTitle>
+            <EmptyDescription>
+              Start an app that listens on a port. It shows up here within a few
+              seconds.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : (
+        <div className="rounded-lg border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Port</TableHead>
+                <TableHead>Directory</TableHead>
+                <TableHead>Command</TableHead>
+                <TableHead>
+                  <span className="sr-only">Actions</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {services.data?.map((service) => (
+                <TableRow key={service.port}>
+                  <TableCell>
+                    {renaming === service.port ? (
+                      <RenameForm
+                        service={service}
+                        onDone={() => setRenaming(undefined)}
+                      />
+                    ) : (
+                      <Button
+                        title="Rename"
+                        variant="ghost"
+                        onClick={() => setRenaming(service.port)}
+                      >
+                        {service.name}
+                      </Button>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <span className="font-mono text-xs">{service.port}</span>
+                  </TableCell>
+                  <TableCell>
+                    <Truncated text={service.cwd} />
+                  </TableCell>
+                  <TableCell>
+                    <Truncated text={service.command} />
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex justify-end">
+                      <a
+                        className={buttonVariants({
+                          size: "sm",
+                          variant: "outline",
+                        })}
+                        href={service.url}
+                        rel="noreferrer"
+                        target="_blank"
+                      >
+                        Open
+                        <RiExternalLinkLine />
+                      </a>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </>
   );
 }
 
