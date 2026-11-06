@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.server.tsbuildinfo",
+    "lib": ["ES2023"],
+    "types": ["bun"]
+  },
+  "include": [
+    "server.ts",
+    "src/server",
+    "src/shared",
+    "src/dist.d.ts",
+    "scripts",
+    "*.config.ts",
+    "tests"
+  ]
+}

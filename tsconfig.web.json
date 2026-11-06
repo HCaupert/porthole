@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.web.tsbuildinfo"
+  },
+  "include": [
+    "src/routes",
+    "src/components",
+    "src/lib",
+    "src/shared",
+    "src/router.tsx",
+    "src/routeTree.gen.ts",
+    "vite.config.ts"
+  ]
+}
