@@ -24,12 +24,14 @@ startRetention();
 
 startForwarding();
 
-const server = Bun.serve<ProxySocket>({
-  hostname: "127.0.0.1",
-  port: config.port,
-  idleTimeout: 255,
-  fetch: gateway(app),
-  websocket: proxyWebSocket,
-});
+for (const hostname of config.listenAddresses) {
+  const server = Bun.serve<ProxySocket>({
+    hostname,
+    port: config.port,
+    idleTimeout: 255,
+    fetch: gateway(app),
+    websocket: proxyWebSocket,
+  });
 
-console.log(`porthole listening on ${server.url.href}`);
+  console.log(`porthole listening on ${server.url.href}`);
+}

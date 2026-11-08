@@ -9,7 +9,7 @@ import { getService } from "./services.ts";
 const OWN_HOSTS = new Set([
   config.publicUrl.hostname,
   "localhost",
-  "127.0.0.1",
+  ...config.listenAddresses,
 ]);
 
 function portPattern(template: string) {
