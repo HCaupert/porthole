@@ -2,11 +2,11 @@
 
 Porthole runs on a remote development machine. It gives you one UI for people and one local API for coding agents.
 
-Porthole does three things:
+Porthole does these things:
 
-- It receives webhooks from providers such as GitHub, GitLab and Jira, and keeps them for inspection and replay.
+- It receives webhooks from providers such as GitHub, GitLab and Jira, and keeps them for inspection and replay. It can forward each new webhook to a local app.
 - It records the outbound HTTP calls of your local apps. Your app calls Porthole, and Porthole forwards the call to the real upstream.
-- It finds the services that listen on local ports. It opens each service at its own hostname, for example `3104-porthole.example.com`.
+- It finds the services that listen on local ports. It opens each service at its own hostname, for example `3104-porthole.example.com`. It can open a service to callers that cannot sign in, for example `3104-public.example.com`.
 
 Porthole has no authentication. Put a tunnel and an access layer in front of it. See [Cloudflare setup](#cloudflare-setup).
 
@@ -28,9 +28,11 @@ Porthole reads its configuration from environment variables. Bun also reads a `.
 
 | Variable | Required | Default | Description |
 | --- | --- | --- | --- |
-| `PORT` | No | `5200` | Port of the server. The server listens on `127.0.0.1` only. |
+| `PORT` | No | `5200` | Port of the server. |
+| `BRIDGE_ADDRESS` | No |  | IPv4 address to listen on, in addition to `127.0.0.1`. Set it to the Docker bridge gateway, `172.17.0.1`, so containers can reach Porthole. Without it, the server listens on `127.0.0.1` only. |
 | `PUBLIC_URL` | Yes |  | Public URL of the UI, for example `https://porthole.example.com`. Webhook URLs start with it. |
 | `SERVICE_HOST` | Yes |  | Hostname template of the services. Porthole replaces `*` with the port: `*-porthole.example.com`. |
+| `PUBLIC_SERVICE_HOST` | No |  | Hostname template of the public services. Porthole replaces `*` with the port: `*-public.example.com`. Without it, Porthole serves no public service. |
 | `DATABASE_PATH` | No | `~/.porthole/porthole.db` | SQLite database file. |
 
 ## Run
@@ -43,17 +45,21 @@ The server answers requests that have one of these `Host` headers:
 
 - The host of `PUBLIC_URL`, `localhost` or `127.0.0.1`: the UI and the API.
 - A host that matches `SERVICE_HOST`: a proxy to the service on that port.
+- A host that matches `PUBLIC_SERVICE_HOST`: a proxy to the service on that port if the port is published. Otherwise `404`.
+- The `BRIDGE_ADDRESS`: the UI and the API.
 - Any other host: `404`.
 
 ## Cloudflare setup
 
 Porthole expects these items in front of it:
 
-1. A Cloudflare Tunnel with two public hostnames. Both point to `http://127.0.0.1:5200`:
+1. A Cloudflare Tunnel with public hostnames. All point to `http://127.0.0.1:5200`:
    - The host of `PUBLIC_URL`, for example `porthole.example.com`.
    - The wildcard of `SERVICE_HOST`, for example `*-porthole.example.com`.
-2. DNS records for both hostnames that point to the tunnel.
+   - The wildcard of `PUBLIC_SERVICE_HOST`, for example `*-public.example.com`. Skip it if you do not publish ports.
+2. DNS records for each hostname that point to the tunnel.
 3. A Cloudflare Access application that protects every path except `/api/webhooks/*`. Providers cannot sign in, so they must reach `/api/webhooks/*` without Access.
+4. A bypass policy for `*-public.example.com`. Porthole does the access control of this host: it serves only the ports you publish.
 
 Put the service host at the first level under your domain (`3104-porthole.example.com`). Then the Universal SSL certificate of the domain covers it.
 
@@ -75,6 +81,17 @@ Porthole answers `200` with an empty body, and stores the delivery. If the signa
 
 Porthole keeps each exchange for 7 days. It always keeps the latest exchange of each source and event name, as a sample.
 
+## Subscriptions
+
+A subscription sends each new delivery of an inbound source to a URL. Use it to send real webhooks to a local app that has no public address.
+
+```sh
+curl -X POST http://127.0.0.1:5200/api/subscriptions -H 'content-type: application/json' \
+  -d '{"source":"github","url":"http://127.0.0.1:3000/api/webhooks/github","ttlSeconds":3600}'
+```
+
+Porthole sends the delivery signed again with the secret of the source, the same way as a replay. It sends it to the URL exactly as given. `GET /api/exchanges/:id/forwards` gives the status of each forward. A subscription ends when its TTL ends: Porthole ignores it and removes it. `DELETE /api/subscriptions/:id` ends it earlier.
+
 ## Outbound capture
 
 1. Create an outbound source with an upstream, for example `https://api.github.com`.
@@ -87,6 +104,20 @@ Porthole appends the path and the query to the upstream, and returns the respons
 Porthole lists each process of the current user that listens on a TCP port. It excludes its own port. The name of a service is the shortest trailing part of its working directory that is unique. You can rename a service. The name sticks to the working directory.
 
 Open a service at `SERVICE_HOST` with the port. Porthole forwards the request, WebSocket upgrades included, to the service. It keeps the `Host` header unchanged. The app must accept that host. For Vite, add the domain to `server.allowedHosts`.
+
+### Public services
+
+The service host is behind Cloudflare Access. A caller that cannot sign in, for example a CI job, uses the public host. Publish the port first:
+
+```sh
+curl -X PUT http://127.0.0.1:5200/api/publications/3104 -H 'content-type: application/json' -d '{"ttlSeconds":3600}'
+```
+
+Porthole then serves the port at `PUBLIC_SERVICE_HOST`, for example `3104-public.example.com`, as it does for the service host. When the TTL ends, or after `DELETE /api/publications/3104`, the host answers `404`. Send the `PUT` again to renew the TTL.
+
+### Docker containers
+
+A container cannot reach `127.0.0.1` of the machine. Set `BRIDGE_ADDRESS=172.17.0.1`. A container then calls `http://172.17.0.1:5200/_outbound/<name>` and the API at `http://172.17.0.1:5200/api`.
 
 ## API for agents
 
@@ -107,8 +138,15 @@ Agents call `http://127.0.0.1:5200`. The full reference is in two places:
 | `GET /api/exchanges/stream` | Server-sent events, one message for each new exchange. |
 | `GET /api/exchanges/:id` | Read an exchange. |
 | `POST /api/exchanges/:id/replay` | Send an inbound exchange again to `{ "url": "..." }`, signed again. |
+| `GET /api/exchanges/:id/forwards` | List the forwards of an exchange to subscriptions. |
+| `GET /api/subscriptions` | List live subscriptions. Filter: `source`. |
+| `POST /api/subscriptions` | Create a subscription with `{ "source", "url", "ttlSeconds" }`. |
+| `DELETE /api/subscriptions/:id` | Delete a subscription. |
 | `GET /api/services` | List services. |
 | `PUT /api/services/:port` | Rename a service with `{ "name": "..." }`. |
+| `GET /api/publications` | List published ports. |
+| `PUT /api/publications/:port` | Publish a port, or renew it, with `{ "ttlSeconds" }`. |
+| `DELETE /api/publications/:port` | Unpublish a port. |
 
 Example: wait for the next push of a source.
 
