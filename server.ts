@@ -3,6 +3,7 @@ import path from "node:path";
 import start from "./dist/server/server.js";
 import { app } from "./src/server/app.ts";
 import { config } from "./src/server/config.ts";
+import { startForwarding } from "./src/server/forwards.ts";
 import { gateway } from "./src/server/gateway.ts";
 import { proxyWebSocket } from "./src/server/proxy.ts";
 import type { ProxySocket } from "./src/server/proxy.ts";
@@ -21,12 +22,16 @@ app.notFound(async (c) => {
 
 startRetention();
 
-const server = Bun.serve<ProxySocket>({
-  hostname: "127.0.0.1",
-  port: config.port,
-  idleTimeout: 255,
-  fetch: gateway(app),
-  websocket: proxyWebSocket,
-});
+startForwarding();
 
-console.log(`porthole listening on ${server.url.href}`);
+for (const hostname of config.listenAddresses) {
+  const server = Bun.serve<ProxySocket>({
+    hostname,
+    port: config.port,
+    idleTimeout: 255,
+    fetch: gateway(app),
+    websocket: proxyWebSocket,
+  });
+
+  console.log(`porthole listening on ${server.url.href}`);
+}

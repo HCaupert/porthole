@@ -6,10 +6,14 @@ import { SourceSchema, SourceUpdateSchema } from "../shared/domain.ts";
 import {
   ExchangeParams,
   ExchangeQuery,
+  PublicationBody,
   RenameBody,
   ReplayBody,
   ServiceParams,
   SourceParams,
+  SubscriptionBody,
+  SubscriptionParams,
+  SubscriptionQuery,
 } from "./api.schemas.ts";
 import { config } from "./config.ts";
 import { fail } from "./errors.ts";
@@ -20,6 +24,8 @@ import {
   onExchange,
   waitForExchanges,
 } from "./exchanges.ts";
+import { listForwards } from "./forwards.ts";
+import { listPublications, publish, unpublish } from "./publications.ts";
 import { replayExchange } from "./replay.ts";
 import { getService, listServices, renameService } from "./services.ts";
 import {
@@ -30,6 +36,11 @@ import {
   toSourceView,
   updateSource,
 } from "./sources.ts";
+import {
+  createSubscription,
+  deleteSubscription,
+  listSubscriptions,
+} from "./subscriptions.ts";
 
 const api = config.localUrl;
 const PING_MS = 15_000;
@@ -184,6 +195,56 @@ curl '${api}/api/exchanges?source=github&after=42&wait=60'`,
     }
   )
   .get(
+    "/exchanges/:id/forwards",
+    describeRoute({
+      summary:
+        "List the forwards of an exchange to subscriptions: url, time and status. Status is null when the call failed, with the error",
+      description: `curl ${api}/api/exchanges/42/forwards`,
+    }),
+    validator("param", ExchangeParams),
+    (c) => {
+      const { id } = c.req.valid("param");
+
+      if (!getExchange(id)) {
+        throw fail(404, "EXCHANGE_NOT_FOUND");
+      }
+
+      return c.json(listForwards(id));
+    }
+  )
+  .get(
+    "/subscriptions",
+    describeRoute({
+      summary: "List the live subscriptions. Expired ones are not listed",
+      description: `curl '${api}/api/subscriptions?source=github'`,
+    }),
+    validator("query", SubscriptionQuery),
+    (c) => c.json(listSubscriptions(c.req.valid("query").source))
+  )
+  .post(
+    "/subscriptions",
+    describeRoute({
+      summary:
+        "Forward each new delivery of an inbound source to a URL, signed again with the secret of the source, until the TTL ends",
+      description: `curl -X POST ${api}/api/subscriptions -H 'content-type: application/json' -d '{"source":"github","url":"http://127.0.0.1:3000/api/webhooks/github","ttlSeconds":3600}'`,
+    }),
+    validator("json", SubscriptionBody),
+    (c) => c.json(createSubscription(c.req.valid("json")), 201)
+  )
+  .delete(
+    "/subscriptions/:id",
+    describeRoute({
+      summary: "Delete a subscription",
+      description: `curl -X DELETE ${api}/api/subscriptions/1`,
+    }),
+    validator("param", SubscriptionParams),
+    (c) => {
+      deleteSubscription(c.req.valid("param").id);
+
+      return c.body(null, 204);
+    }
+  )
+  .get(
     "/services",
     describeRoute({
       summary:
@@ -211,5 +272,39 @@ curl '${api}/api/exchanges?source=github&after=42&wait=60'`,
       renameService(service.cwd, name);
 
       return c.json({ ...service, name });
+    }
+  )
+  .get(
+    "/publications",
+    describeRoute({
+      summary:
+        "List the published ports. Only a published port opens at its public url, without Cloudflare Access",
+      description: `curl ${api}/api/publications`,
+    }),
+    (c) => c.json(listPublications())
+  )
+  .put(
+    "/publications/:port",
+    describeRoute({
+      summary:
+        "Publish a port until the TTL ends. Send it again to renew the TTL",
+      description: `curl -X PUT ${api}/api/publications/3104 -H 'content-type: application/json' -d '{"ttlSeconds":3600}'`,
+    }),
+    validator("param", ServiceParams),
+    validator("json", PublicationBody),
+    (c) =>
+      c.json(publish(c.req.valid("param").port, c.req.valid("json").ttlSeconds))
+  )
+  .delete(
+    "/publications/:port",
+    describeRoute({
+      summary: "Unpublish a port",
+      description: `curl -X DELETE ${api}/api/publications/3104`,
+    }),
+    validator("param", ServiceParams),
+    (c) => {
+      unpublish(c.req.valid("param").port);
+
+      return c.body(null, 204);
     }
   );

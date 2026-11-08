@@ -74,6 +74,7 @@ export function updateSource(name: string, update: SourceUpdate) {
 
 export function deleteSource(name: string) {
   db.query("DELETE FROM exchanges WHERE source = ?").run(name);
+  db.query("DELETE FROM subscriptions WHERE source = ?").run(name);
   db.query("DELETE FROM sources WHERE name = ?").run(name);
 }
 

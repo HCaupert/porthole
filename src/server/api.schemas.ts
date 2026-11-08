@@ -36,4 +36,24 @@ export const ReplayBody = z.object({
   url: z.url().describe("Where to send the exchange again"),
 });
 
+const TtlSeconds = z
+  .number()
+  .int()
+  .positive()
+  .describe("Seconds until it expires");
+
+export const SubscriptionParams = z.object({ id: z.coerce.number().int() });
+
+export const SubscriptionQuery = z.object({
+  source: z.string().optional().describe("Only this source"),
+});
+
+export const SubscriptionBody = z.object({
+  source: SourceName.describe("Inbound source to forward"),
+  url: z.url().describe("Where to send each new delivery, signed again"),
+  ttlSeconds: TtlSeconds,
+});
+
+export const PublicationBody = z.object({ ttlSeconds: TtlSeconds });
+
 export const RenameBody = z.object({ name: z.string().min(1) });
