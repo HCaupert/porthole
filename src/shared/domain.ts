@@ -140,3 +140,10 @@ export const ForwardSchema = z.object({
 });
 
 export type Forward = z.infer<typeof ForwardSchema>;
+
+export const PublicationSchema = z.object({
+  port: z.number().int(),
+  expiresAt: z.iso.datetime(),
+});
+
+export type Publication = z.infer<typeof PublicationSchema>;

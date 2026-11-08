@@ -7,6 +7,7 @@ const Env = z.object({
   PORT: z.coerce.number().int().default(5200),
   PUBLIC_URL: z.url(),
   SERVICE_HOST: z.string().includes("*"),
+  PUBLIC_SERVICE_HOST: z.string().includes("*").optional(),
   DATABASE_PATH: z
     .string()
     .default(path.join(homedir(), ".porthole", "porthole.db")),
@@ -21,5 +22,6 @@ export const config = {
   publicUrl,
   localUrl: `http://127.0.0.1:${env.PORT}`,
   serviceHost: env.SERVICE_HOST,
+  publicServiceHost: env.PUBLIC_SERVICE_HOST,
   databasePath: env.DATABASE_PATH,
 };

@@ -6,6 +6,7 @@ import { SourceSchema, SourceUpdateSchema } from "../shared/domain.ts";
 import {
   ExchangeParams,
   ExchangeQuery,
+  PublicationBody,
   RenameBody,
   ReplayBody,
   ServiceParams,
@@ -24,6 +25,7 @@ import {
   waitForExchanges,
 } from "./exchanges.ts";
 import { listForwards } from "./forwards.ts";
+import { listPublications, publish, unpublish } from "./publications.ts";
 import { replayExchange } from "./replay.ts";
 import { getService, listServices, renameService } from "./services.ts";
 import {
@@ -270,5 +272,39 @@ curl '${api}/api/exchanges?source=github&after=42&wait=60'`,
       renameService(service.cwd, name);
 
       return c.json({ ...service, name });
+    }
+  )
+  .get(
+    "/publications",
+    describeRoute({
+      summary:
+        "List the published ports. Only a published port opens at its public url, without Cloudflare Access",
+      description: `curl ${api}/api/publications`,
+    }),
+    (c) => c.json(listPublications())
+  )
+  .put(
+    "/publications/:port",
+    describeRoute({
+      summary:
+        "Publish a port until the TTL ends. Send it again to renew the TTL",
+      description: `curl -X PUT ${api}/api/publications/3104 -H 'content-type: application/json' -d '{"ttlSeconds":3600}'`,
+    }),
+    validator("param", ServiceParams),
+    validator("json", PublicationBody),
+    (c) =>
+      c.json(publish(c.req.valid("param").port, c.req.valid("json").ttlSeconds))
+  )
+  .delete(
+    "/publications/:port",
+    describeRoute({
+      summary: "Unpublish a port",
+      description: `curl -X DELETE ${api}/api/publications/3104`,
+    }),
+    validator("param", ServiceParams),
+    (c) => {
+      unpublish(c.req.valid("param").port);
+
+      return c.body(null, 204);
     }
   );

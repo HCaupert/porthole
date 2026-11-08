@@ -48,4 +48,8 @@ db.run(`
     error TEXT
   );
   CREATE INDEX IF NOT EXISTS forwards_exchange ON forwards (exchange_id);
+  CREATE TABLE IF NOT EXISTS publications (
+    port INTEGER PRIMARY KEY,
+    expires_at TEXT NOT NULL
+  );
 `);
