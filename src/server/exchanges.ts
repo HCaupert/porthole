@@ -144,6 +144,9 @@ export function purgeExchanges(olderThan: Date) {
      WHERE received_at < ?
        AND id NOT IN (SELECT MAX(id) FROM exchanges GROUP BY source, event_name)`
   ).run(olderThan.toISOString());
+  db.query(
+    "DELETE FROM forwards WHERE exchange_id NOT IN (SELECT id FROM exchanges)"
+  ).run();
 }
 
 export async function waitForExchanges(

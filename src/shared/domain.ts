@@ -122,3 +122,21 @@ export const ReplayResultSchema = z.object({
   status: z.number().int(),
   body: z.string(),
 });
+
+export const SubscriptionSchema = z.object({
+  id: z.number().int(),
+  source: SourceName,
+  url: z.url().describe("Where each new delivery of the source is sent"),
+  expiresAt: z.iso.datetime(),
+});
+
+export type Subscription = z.infer<typeof SubscriptionSchema>;
+
+export const ForwardSchema = z.object({
+  url: z.string(),
+  forwardedAt: z.iso.datetime(),
+  status: z.number().int().nullable().describe("Null when the call failed"),
+  error: z.string().nullable(),
+});
+
+export type Forward = z.infer<typeof ForwardSchema>;

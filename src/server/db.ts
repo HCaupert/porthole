@@ -32,4 +32,20 @@ db.run(`
     cwd TEXT PRIMARY KEY,
     name TEXT NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS subscriptions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source TEXT NOT NULL,
+    url TEXT NOT NULL,
+    expires_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS subscriptions_source ON subscriptions (source);
+  CREATE TABLE IF NOT EXISTS forwards (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    exchange_id INTEGER NOT NULL,
+    url TEXT NOT NULL,
+    forwarded_at TEXT NOT NULL,
+    status INTEGER,
+    error TEXT
+  );
+  CREATE INDEX IF NOT EXISTS forwards_exchange ON forwards (exchange_id);
 `);

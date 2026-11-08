@@ -3,6 +3,7 @@ import path from "node:path";
 import start from "./dist/server/server.js";
 import { app } from "./src/server/app.ts";
 import { config } from "./src/server/config.ts";
+import { startForwarding } from "./src/server/forwards.ts";
 import { gateway } from "./src/server/gateway.ts";
 import { proxyWebSocket } from "./src/server/proxy.ts";
 import type { ProxySocket } from "./src/server/proxy.ts";
@@ -20,6 +21,8 @@ app.notFound(async (c) => {
 });
 
 startRetention();
+
+startForwarding();
 
 const server = Bun.serve<ProxySocket>({
   hostname: "127.0.0.1",
