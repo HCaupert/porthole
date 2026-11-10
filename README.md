@@ -101,7 +101,7 @@ Porthole appends the path and the query to the upstream, and returns the respons
 
 ## Services
 
-Porthole lists each process of the current user that listens on a TCP port. It excludes its own port. The name of a service is the shortest trailing part of its working directory that is unique. You can rename a service. The name sticks to the working directory.
+Porthole lists each process of the current user that listens on a TCP port. It excludes its own port. The name of a service is the shortest trailing part of its working directory that is unique. If the working directory is your home directory or `/`, the name is the name of the executable, for example `t3`. You can rename a service. The name sticks to the working directory.
 
 Open a service at `SERVICE_HOST` with the port. Porthole forwards the request, WebSocket upgrades included, to the service. It keeps the `Host` header unchanged. The app must accept that host. For Vite, add the domain to `server.allowedHosts`.
 
