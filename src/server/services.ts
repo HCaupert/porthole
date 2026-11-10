@@ -166,11 +166,11 @@ function detect() {
   }));
 }
 
-const cache = { at: 0, services: new Array<Service>() };
+const cache = { at: Number.NEGATIVE_INFINITY, services: new Array<Service>() };
 
 export function listServices() {
-  if (Date.now() - cache.at > CACHE_MS) {
-    cache.at = Date.now();
+  if (performance.now() - cache.at > CACHE_MS) {
+    cache.at = performance.now();
     cache.services = detect();
   }
 
@@ -185,5 +185,5 @@ export function renameService(cwd: string, name: string) {
   db.query(
     "INSERT INTO service_names (cwd, name) VALUES (?, ?) ON CONFLICT (cwd) DO UPDATE SET name = excluded.name"
   ).run(cwd, name);
-  cache.at = 0;
+  cache.at = Number.NEGATIVE_INFINITY;
 }

@@ -1,4 +1,4 @@
-import { expect, setSystemTime, test } from "bun:test";
+import { expect, test } from "bun:test";
 import { homedir } from "node:os";
 import path from "node:path";
 
@@ -42,14 +42,12 @@ test("a service in the home directory is named after its executable", async () =
       .getReader();
 
     const port = Number((await reader.read()).value);
-
-    setSystemTime(new Date(Date.now() + 120_000));
+    await Bun.sleep(1100);
 
     expect(listServices().find((service) => service.port === port)?.name).toBe(
       path.basename(process.execPath)
     );
   } finally {
-    setSystemTime();
     child.kill();
   }
 });
