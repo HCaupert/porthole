@@ -1,6 +1,8 @@
 import { expect, test } from "bun:test";
+import { homedir } from "node:os";
+import path from "node:path";
 
-import { shortestUniqueNames } from "../src/server/services.ts";
+import { listServices, shortestUniqueNames } from "../src/server/services.ts";
 
 test("a lone directory is named after its last segment", () => {
   expect(shortestUniqueNames(["/home/me/bar"]).get("/home/me/bar")).toBe("bar");
@@ -22,4 +24,30 @@ test("services in the same directory share one name", () => {
   const names = shortestUniqueNames(["/work/app", "/work/app", "/other/app"]);
 
   expect(names.get("/work/app")).toBe("work/app");
+});
+
+test("a service in the home directory is named after its executable", async () => {
+  const child = Bun.spawn(
+    [
+      process.execPath,
+      "-e",
+      "console.log(Bun.serve({ port: 0, fetch: () => new Response() }).port)",
+    ],
+    { cwd: homedir(), stdout: "pipe" }
+  );
+
+  try {
+    const reader = child.stdout
+      .pipeThrough(new TextDecoderStream())
+      .getReader();
+
+    const port = Number((await reader.read()).value);
+    await Bun.sleep(1100);
+
+    expect(listServices().find((service) => service.port === port)?.name).toBe(
+      path.basename(process.execPath)
+    );
+  } finally {
+    child.kill();
+  }
 });

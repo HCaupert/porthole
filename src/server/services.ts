@@ -1,4 +1,6 @@
 import { readdirSync, readFileSync, readlinkSync } from "node:fs";
+import { homedir } from "node:os";
+import path from "node:path";
 
 import type { Service } from "../shared/domain.ts";
 import { config } from "./config.ts";
@@ -126,41 +128,49 @@ function detect() {
     ...readListeners("/proc/net/tcp6"),
   ].filter(({ port }) => port !== config.port);
 
-  const processes = new Map<number, Omit<Service, "name" | "url">>();
+  const processes = new Map<
+    number,
+    { service: Omit<Service, "name" | "url">; nameSource: string }
+  >();
 
   for (const { port, host, inode } of listeners) {
     const pid = owners.get(inode);
 
     if (pid !== undefined && !processes.has(port)) {
+      const cwd = readlinkSync(`/proc/${pid}/cwd`);
+      const argv = readFileSync(`/proc/${pid}/cmdline`, "utf-8").split("\0");
+
       processes.set(port, {
-        port,
-        host,
-        pid,
-        cwd: readlinkSync(`/proc/${pid}/cwd`),
-        command: readFileSync(`/proc/${pid}/cmdline`, "utf-8")
-          .split("\0")
-          .join(" ")
-          .trim(),
+        service: { port, host, pid, cwd, command: argv.join(" ").trim() },
+        nameSource: [homedir(), "/"].includes(cwd)
+          ? path.basename(argv[0]!)
+          : cwd,
       });
     }
   }
 
-  const found = [...processes.values()].toSorted((a, b) => a.port - b.port);
-  const defaults = shortestUniqueNames(found.map(({ cwd }) => cwd));
+  const found = [...processes.values()].toSorted(
+    (a, b) => a.service.port - b.service.port
+  );
+
+  const defaults = shortestUniqueNames(
+    found.map(({ nameSource }) => nameSource)
+  );
+
   const custom = customNames();
 
-  return found.map((service): Service => ({
+  return found.map(({ service, nameSource }): Service => ({
     ...service,
-    name: custom.get(service.cwd) ?? defaults.get(service.cwd)!,
+    name: custom.get(service.cwd) ?? defaults.get(nameSource)!,
     url: serviceUrl(service.port),
   }));
 }
 
-const cache = { at: 0, services: new Array<Service>() };
+const cache = { at: Number.NEGATIVE_INFINITY, services: new Array<Service>() };
 
 export function listServices() {
-  if (Date.now() - cache.at > CACHE_MS) {
-    cache.at = Date.now();
+  if (performance.now() - cache.at > CACHE_MS) {
+    cache.at = performance.now();
     cache.services = detect();
   }
 
@@ -175,5 +185,5 @@ export function renameService(cwd: string, name: string) {
   db.query(
     "INSERT INTO service_names (cwd, name) VALUES (?, ?) ON CONFLICT (cwd) DO UPDATE SET name = excluded.name"
   ).run(cwd, name);
-  cache.at = 0;
+  cache.at = Number.NEGATIVE_INFINITY;
 }
